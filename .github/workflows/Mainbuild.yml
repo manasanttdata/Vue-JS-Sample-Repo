@@ -1,0 +1,49 @@
+name: Code build and deploy to aws lambda
+on: 
+  push:
+    branches: 
+      - main
+  workflow_dispatch:
+jobs:
+  ubuntu-build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ matrix.node-version }}
+    - run: npm install 
+    - run: npm run build
+    - name: List Files in Distribution Directory
+      run: |
+          ls -R ./dist 
+          cd dist;
+          zip -r ../nodejs.zip *
+    - name: copy folders to artifact
+      run: |
+          mkdir Artifacts
+          cp ./nodejs.zip ./Artifacts
+          ls Artifacts
+
+    - name : Upload artifact for deployment job
+      uses: actions/upload-artifact@v2
+      with:
+          name: artifactfile
+          path: dist
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
+
+    - name: update function code directly
+      run: aws lambda update-function-code --function-name Vue-JS-SampleApp --region eu-north-1 --zip-file fileb://nodejs.zip
+    
